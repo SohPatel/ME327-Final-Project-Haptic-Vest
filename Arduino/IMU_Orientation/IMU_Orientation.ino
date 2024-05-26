@@ -8,13 +8,15 @@ Connections
    ===========
    Connect SCL to analog 5
    Connect SDA to analog 4
-   Connect VDD to 3.3-5V DC
+   Connect VIN to 3.3-5V DC
    Connect GROUND to common ground
+   Connect ADR to 3.3-5V DC (Bottom IMU Only)
   */
 
 uint16_t BNO055_SAMPLERATE_DELAY_MS = 50;
 
-Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire);
+Adafruit_BNO055 bno_top = Adafruit_BNO055(55, 0x28, &Wire);
+Adafruit_BNO055 bno_bottom = Adafruit_BNO055(55, 0x29, &Wire);
 
 void setup(void)
 {
@@ -24,9 +26,15 @@ void setup(void)
 
   Serial.println("Orientation Sensor Test"); Serial.println("");
 
-  if (!bno.begin())
+  if (!bno_top.begin())
   {
-    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    Serial.print("Ooops, no top BNO055 detected ... Check your wiring or I2C ADDR!");
+    while (1);
+  }
+
+  if (!bno_bottom.begin())
+  {
+    Serial.print("Ooops, no bottom BNO055 detected ... Check your wiring or I2C ADDR!");
     while (1);
   }
 
@@ -35,15 +43,20 @@ void setup(void)
 
 void loop(void)
 {
-  sensors_event_t orientationData;
-  bno.getEvent(&orientationData);
+  sensors_event_t topOrientationData;
+  sensors_event_t bottomOrientationData;
+  bno_top.getEvent(&topOrientationData);
+  bno_bottom.getEvent(&bottomOrientationData);
 
-  printOrientationData(&orientationData);
+  printOrientationData(&topOrientationData, bno_top);
+  Serial.print(",");
+  printOrientationData(&bottomOrientationData, bno_bottom);
+  Serial.println("");
 
   delay(BNO055_SAMPLERATE_DELAY_MS);
 }
 
-void printOrientationData(sensors_event_t* event) {
+void printOrientationData(sensors_event_t* event, Adafruit_BNO055 bno) {
   if (event->type == SENSOR_TYPE_ORIENTATION) {
     //double x = event->orientation.x;
     //double y = event->orientation.y;
@@ -55,10 +68,11 @@ void printOrientationData(sensors_event_t* event) {
     float temp = q.x();  q.x() = -q.y();  q.y() = temp;
     q.z() = -q.z();
     imu::Vector<3> euler = q.toEuler();
-    double x = -180/M_PI * euler.x(); // heading, nose-right is positive, z-axis points up
-    double y = -180/M_PI * euler.y(); // roll, rightwing-up is positive, y-axis points forward
+    double x = 180/M_PI * euler.x(); // heading, nose-right is positive, z-axis points up
+    double y = 180/M_PI * euler.y(); // roll, rightwing-up is positive, y-axis points forward
     double z = -180/M_PI * euler.z(); // pitch, nose-down is positive, x-axis points right
 
+    /*
     Serial.print(-360); // To freeze the lower limit
     Serial.print(" ");
     Serial.print(360); // To freeze the upper limit
@@ -67,6 +81,7 @@ void printOrientationData(sensors_event_t* event) {
     Serial.print(",");
     Serial.print(y);
     Serial.print(",");
-    Serial.println(z);
+    */
+    Serial.print(z);
   }
 }
