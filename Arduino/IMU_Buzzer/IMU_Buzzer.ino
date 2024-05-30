@@ -6,13 +6,19 @@
 const int buzzerPin1 = 9; // buzzer front
 const int buzzerPin2 = 10; // buzzer back
 
-const int forward_angle = 10;
-const int backward_angle = -10;
+const int forward_angle_min = 10;
+const int forward_angle_max = 50;
+
+const int backward_angle_min = -10;
+const int backward_angle_max = -50;
+
+const int absolute_angle_max = 50;
 
 const int num_threshold = 3;
 
 int counter_positive = 0;
 int counter_negative = 0;
+int counter_absolute = 0;
 
 /*
 Connections
@@ -70,27 +76,45 @@ void loop(void)
   double z_top = getOrientationZ(&topOrientationData, bno_top);
   double z_bottom = getOrientationZ(&bottomOrientationData, bno_bottom);
 
-  if (z_top - z_bottom > forward_angle) {
+  // -------- Absolute diff --------
+  if (z_top > absolute_angle_max) {
+    counter_absolute++;
+    if (counter_absolute > num_threshold) {
+      analogWrite(buzzerPin1, 255);
+      analogWrite(buzzerPin2, 255);
+      Serial.println("Max absolute angle reached");
+    }
+  } else {
+    counter_absolute = 0;
+  }
+
+  // -------- Relative diff --------
+  if (z_top - z_bottom > forward_angle_min) {
     counter_positive++;
     if (counter_positive > num_threshold) {
-      digitalWrite(buzzerPin1, HIGH);
+      analogWrite(buzzerPin1, (z_top-z_bottom)/(forward_angle_max)*255);
+      Serial.print("Buzz Forward: ");
+      Serial.println((z_top-z_bottom)/(forward_angle_max)*255);
     }
   } else {
     counter_positive = 0;
   }
 
-  if (z_top - z_bottom < backward_angle) {
+  if (z_top - z_bottom < backward_angle_min) {
     counter_negative++;
     if (counter_negative > num_threshold) {
-      digitalWrite(buzzerPin2, HIGH);
+      analogWrite(buzzerPin2, (z_top-z_bottom)/(backward_angle_max)*255);
+      Serial.print("Buzz Backward: ");
+      Serial.println((z_top-z_bottom)/(backward_angle_max)*255);
     }
   } else {
     counter_negative = 0;
   }
 
+  delay(2*BNO055_SAMPLERATE_DELAY_MS);
+  analogWrite(buzzerPin1, 0);
+  analogWrite(buzzerPin2, 0);
   delay(BNO055_SAMPLERATE_DELAY_MS);
-  digitalWrite(buzzerPin1, LOW);
-  digitalWrite(buzzerPin2, LOW);
 }
 
 void printOrientationData(sensors_event_t* event, Adafruit_BNO055 bno) {
