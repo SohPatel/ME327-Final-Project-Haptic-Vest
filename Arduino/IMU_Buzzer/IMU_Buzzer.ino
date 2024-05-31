@@ -19,6 +19,10 @@ const int num_threshold = 3;
 int counter_positive = 0;
 int counter_negative = 0;
 int counter_absolute = 0;
+int counter_calib = 0;
+
+bool user_calibrated = false;
+double max_flexion = 0;
 
 /*
 Connections
@@ -75,6 +79,24 @@ void loop(void)
 
   double z_top = getOrientationZ(&topOrientationData, bno_top);
   double z_bottom = getOrientationZ(&bottomOrientationData, bno_bottom);
+
+  if (!user_calibrated) {
+    if (z_top >= max_flexion) {
+      max_flexion = z_top;
+    } else {
+      counter_calib++;
+    }
+
+    // Calibrated if no new max flexion for > 1s.
+    if (counter_calib > 20) {
+      user_calibrated = true;
+      absolute_angle_max = max_flexion;
+      indicateCalibrated(buzzerPin1, buzzerPin2, BNO055_SAMPLERATE_DELAY_MS);
+    }
+
+    delay(BNO055_SAMPLERATE_DELAY_MS);
+    return;
+  }
 
   // -------- Absolute diff --------
   if (z_top > absolute_angle_max) {
@@ -160,4 +182,25 @@ double getOrientationZ(sensors_event_t* event, Adafruit_BNO055 bno) {
     return z;
   }
   return 0.0; // Return a default value if the event type is not SENSOR_TYPE_ORIENTATION
+}
+
+// Indicates user is calibrated
+void indicateCalibrated(const int bp1, const int bp2, double delay_rate) {
+    analogWrite(bp1, 255);
+    delay(delay_rate);
+    analogWrite(bp1, 0);
+    delay(delay_rate);
+    analogWrite(bp1, 255);
+    delay(delay_rate);
+    analogWrite(bp1, 0);
+    delay(delay_rate);
+
+    analogWrite(bp2, 255);
+    delay(delay_rate);
+    analogWrite(bp2, 0);
+    delay(delay_rate);
+    analogWrite(bp2, 255);
+    delay(delay_rate);
+    analogWrite(bp2, 0);
+    delay(delay_rate);
 }
