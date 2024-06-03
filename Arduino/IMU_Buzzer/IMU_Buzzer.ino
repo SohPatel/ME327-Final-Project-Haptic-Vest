@@ -12,7 +12,7 @@ const int forward_angle_max = 50;
 const int backward_angle_min = -10;
 const int backward_angle_max = -50;
 
-const int absolute_angle_max = 50;
+int absolute_angle_max = 50;
 
 const int num_threshold = 3;
 
@@ -35,6 +35,10 @@ Connections
   */
 
 uint16_t BNO055_SAMPLERATE_DELAY_MS = 50;
+const uint16_t MIN_DELAY = 10;
+const uint16_t MAX_DELAY = BNO055_SAMPLERATE_DELAY_MS; 
+
+const double MAX_ANGULAR_VELOCITY = 3.0; // rad/s
 
 Adafruit_BNO055 bno_top = Adafruit_BNO055(55, 0x28, &Wire);
 Adafruit_BNO055 bno_bottom = Adafruit_BNO055(55, 0x29, &Wire);
@@ -72,6 +76,11 @@ void loop(void)
   bno_top.getEvent(&topOrientationData);
   bno_bottom.getEvent(&bottomOrientationData);
 
+  sensors_event_t topAngularVelocityData;
+  sensors_event_t bottomAngularVelocityData;
+  bno_top.getEvent(&topAngularVelocityData, Adafruit_BNO055::VECTOR_GYROSCOPE);
+  bno_bottom.getEvent(&bottomAngularVelocityData, Adafruit_BNO055::VECTOR_GYROSCOPE);
+
   // printOrientationData(&topOrientationData, bno_top);
   // Serial.print(",");
   // printOrientationData(&bottomOrientationData, bno_bottom);
@@ -79,6 +88,11 @@ void loop(void)
 
   double z_top = getOrientationZ(&topOrientationData, bno_top);
   double z_bottom = getOrientationZ(&bottomOrientationData, bno_bottom);
+
+  double z_dot_top = getAngularVelocityZ(&topAngularVelocityData, bno_top);
+  double z_dot_bottom = getAngularVelocityZ(&bottomAngularVelocityData, bno_bottom);
+  
+  uint16_t buzzer_delay = BNO055_SAMPLERATE_DELAY_MS;
 
   if (!user_calibrated) {
     if (z_top >= max_flexion) {
@@ -105,6 +119,7 @@ void loop(void)
       analogWrite(buzzerPin1, 255);
       analogWrite(buzzerPin2, 255);
       Serial.println("Max absolute angle reached");
+      buzzer_delay = MIN_DELAY;
     }
   } else {
     counter_absolute = 0;
@@ -117,6 +132,9 @@ void loop(void)
       analogWrite(buzzerPin1, (z_top-z_bottom)/(forward_angle_max)*255);
       Serial.print("Buzz Forward: ");
       Serial.println((z_top-z_bottom)/(forward_angle_max)*255);
+      if (z_dot_top > 0)
+        buzzer_delay = map(z_dot_top, MAX_ANGULAR_VELOCITY, 0.0 , MIN_DELAY, MAX_DELAY);
+      else buzzer_delay = MAX_DELAY;
     }
   } else {
     counter_positive = 0;
@@ -128,15 +146,18 @@ void loop(void)
       analogWrite(buzzerPin2, (z_top-z_bottom)/(backward_angle_max)*255);
       Serial.print("Buzz Backward: ");
       Serial.println((z_top-z_bottom)/(backward_angle_max)*255);
+      if (z_dot_top < 0)
+        buzzer_delay = map(z_dot_top, -MAX_ANGULAR_VELOCITY, 0.0 , MIN_DELAY, MAX_DELAY);
+      else buzzer_delay = MAX_DELAY;
     }
   } else {
     counter_negative = 0;
   }
 
-  delay(2*BNO055_SAMPLERATE_DELAY_MS);
+  delay(2*buzzer_delay);
   analogWrite(buzzerPin1, 0);
   analogWrite(buzzerPin2, 0);
-  delay(BNO055_SAMPLERATE_DELAY_MS);
+  delay(buzzer_delay);
 }
 
 void printOrientationData(sensors_event_t* event, Adafruit_BNO055 bno) {
@@ -183,6 +204,18 @@ double getOrientationZ(sensors_event_t* event, Adafruit_BNO055 bno) {
   }
   return 0.0; // Return a default value if the event type is not SENSOR_TYPE_ORIENTATION
 }
+
+double getAngularVelocityZ(sensors_event_t* event, Adafruit_BNO055 bno) {
+  double x = -1000000, y = -1000000 , z = -1000000; //dumb values, easy to spot problem
+  if (event->type == SENSOR_TYPE_GYROSCOPE) {
+    x = event->gyro.x;
+    y = event->gyro.y;
+    z = event->gyro.z;
+    return z;
+  }
+  return 0.0; // Return a default value if the event type is not SENSOR_TYPE_GYROSCOPE
+}
+
 
 // Indicates user is calibrated
 void indicateCalibrated(const int bp1, const int bp2, double delay_rate) {
