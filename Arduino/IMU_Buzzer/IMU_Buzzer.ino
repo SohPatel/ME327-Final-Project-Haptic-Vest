@@ -3,6 +3,8 @@
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
 
+#define CALIBRATE_FLEXION
+
 const int buzzerPin1 = 9; // buzzer front
 const int buzzerPin2 = 10; // buzzer back
 
@@ -80,6 +82,7 @@ void loop(void)
   double z_top = getOrientationZ(&topOrientationData, bno_top);
   double z_bottom = getOrientationZ(&bottomOrientationData, bno_bottom);
 
+  #ifdef CALIBRATE_FLEXION
   if (!user_calibrated) {
     if (z_top >= max_flexion) {
       max_flexion = z_top;
@@ -92,11 +95,14 @@ void loop(void)
       user_calibrated = true;
       absolute_angle_max = max_flexion;
       indicateCalibrated(buzzerPin1, buzzerPin2, BNO055_SAMPLERATE_DELAY_MS);
+      Serial.print("Front flexion calibrated at: ");
+      serial.println(max_flexion);
     }
 
     delay(BNO055_SAMPLERATE_DELAY_MS);
     return;
   }
+  #endif
 
   // -------- Absolute diff --------
   if (z_top > absolute_angle_max) {
