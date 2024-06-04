@@ -12,9 +12,11 @@ backward_angle_max = -3;
 MIN_BUZZER_AMP = 70;
 MAX_BUZZER_AMP = 170;
 
-% Create a range of angle differences for forward and backward
+% Create a range of angle differences for forward and backward and good
+% posture range
 forward_diff = linspace(forward_angle_min, forward_angle_max, 100);
 backward_diff = linspace(backward_angle_min, backward_angle_max, 100);
+middle_diff = linspace(backward_angle_max, forward_angle_min, 100);
 
 % Map the forward differences to buzzer amplitudes
 forward_buzzStrength = map(forward_diff, forward_angle_min, forward_angle_max, MIN_BUZZER_AMP, MAX_BUZZER_AMP);
@@ -22,15 +24,26 @@ forward_buzzStrength = map(forward_diff, forward_angle_min, forward_angle_max, M
 % Map the backward differences to buzzer amplitudes
 backward_buzzStrength = map(backward_diff, backward_angle_max, backward_angle_min, MIN_BUZZER_AMP, MAX_BUZZER_AMP);
 
+% Good posture buzzer amplitudes
+middle_buzzStrength = zeros(size(middle_diff));
+
+% Concatenate
+angles = [backward_diff, middle_diff, forward_diff];
+response = [backward_buzzStrength, middle_buzzStrength, forward_buzzStrength];
+
 % Plot the results
 figure(1);
 hold on;
-plot(forward_diff, forward_buzzStrength, 'LineWidth', 2);
-plot(backward_diff, backward_buzzStrength, 'LineWidth', 2);
-xlabel('Relative Difference Change Between Upper and Lower Back Angle (degrees)');
-ylabel('PWM Signal Duty Cycle');
+xline(backward_angle_max, 'b--', 'LineWidth', 2)
+xline(forward_angle_min, 'r--', 'LineWidth', 2)
+plot(backward_diff, backward_buzzStrength * 100/255, 'b-', 'LineWidth', 2)
+plot(forward_diff, forward_buzzStrength * 100/255, 'r-', 'LineWidth', 2)
+plot(middle_diff, middle_buzzStrength, 'k', 'LineWidth', 2)
+xlabel('Measured Upper Back Angle relative to Lower Back (degrees)');
+ylabel('PWM Signal Duty Cycle (%)');
 title('ERM Amplitude Response Profile');
-legend('Forward Bending (Slouching)', 'Backward Bending (Hyperextending)', 'location', 'north');
+legend('Backward Bending Threshold', 'Forward Bending Threshold', 'Signal to Back ERM',...
+    'Signal to Front ERM', 'Good Posture Region','location', 'southwest');
 grid on;
 hold off;
 printpdf(gcf, 'ERM_Response.pdf')
